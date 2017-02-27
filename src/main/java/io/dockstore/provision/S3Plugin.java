@@ -156,20 +156,20 @@ public class S3Plugin extends Plugin {
             String bucketName = splitPathList.remove(0);
 
             PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, Joiner.on("/").join(splitPathList), sourceFile.toFile());
-            ObjectMetadata metadataObject = putObjectRequest.getMetadata();
+            ObjectMetadata md = new ObjectMetadata();
+            md.setContentLength(inputSize);
 
             Gson gson = new Gson();
             Type type = new TypeToken<Map<String, String>>(){}.getType();
             try {
                 Map<String, String> map = gson.fromJson(metadata, type);
                 for (Map.Entry<String, String> entry : map.entrySet()) {
-                    metadataObject.getUserMetadata().put(entry.getKey(), entry.getValue());
+                    md.getUserMetadata().put(entry.getKey(), entry.getValue());
                 }
             } catch(com.google.gson.JsonSyntaxException ex) {
-                metadataObject.getUserMetadata().put("encoded_metadata", metadata);
+                md.getUserMetadata().put("encoded_metadata", metadata);
             }
-
-            putObjectRequest.setMetadata(metadataObject);
+            putObjectRequest.setMetadata(md);
 
             putObjectRequest.setGeneralProgressListener(getProgressListener(inputSize));
             try {
