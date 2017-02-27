@@ -15,6 +15,7 @@
  */
 package io.dockstore.provision;
 
+import java.lang.reflect.Type;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -32,6 +33,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.internal.S3Signer;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.transfer.Download;
@@ -41,6 +43,8 @@ import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 import ro.fortsoft.pf4j.Extension;
 import ro.fortsoft.pf4j.Plugin;
@@ -152,6 +156,21 @@ public class S3Plugin extends Plugin {
             String bucketName = splitPathList.remove(0);
 
             PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, Joiner.on("/").join(splitPathList), sourceFile.toFile());
+            ObjectMetadata metadataObject = putObjectRequest.getMetadata();
+
+            Gson gson = new Gson();
+            Type type = new TypeToken<Map<String, String>>(){}.getType();
+            try {
+                Map<String, String> map = gson.fromJson(metadata, type);
+                for (Map.Entry<String, String> entry : map.entrySet()) {
+                    metadataObject.getUserMetadata().put(entry.getKey(), entry.getValue());
+                }
+            } catch(com.google.gson.JsonSyntaxException ex) {
+                metadataObject.getUserMetadata().put("encoded_metadata", metadata);
+            }
+
+            putObjectRequest.setMetadata(metadataObject);
+
             putObjectRequest.setGeneralProgressListener(getProgressListener(inputSize));
             try {
                 Upload upload = tx.upload(putObjectRequest);

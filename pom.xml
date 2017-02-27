@@ -7,7 +7,7 @@
     <artifactId>dockstore-file-s3-plugin</artifactId>
     <packaging>jar</packaging>
     <name>dockstore-file-s3-plugin</name>
-    <version>0.0.1</version>
+    <version>0.0.2</version>
 
     <properties>
         <plugin.id>${project.artifactId}</plugin.id>
@@ -212,6 +212,12 @@
             <artifactId>log4j</artifactId>
             <version>1.2.17</version>
             <scope>provided</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.8.0</version>
         </dependency>
     </dependencies>
 </project>
