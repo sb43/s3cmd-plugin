@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import com.amazonaws.ClientConfiguration;
@@ -146,7 +147,7 @@ public class S3Plugin extends Plugin {
             }
         }
 
-        public boolean uploadTo(String destPath, Path sourceFile, String metadata) {
+        public boolean uploadTo(String destPath, Path sourceFile, Optional<String> metadata) {
             long inputSize = sourceFile.toFile().length();
             AmazonS3 s3Client = getAmazonS3Client();
             TransferManager tx = TransferManagerBuilder.standard().withS3Client(s3Client).build();
@@ -156,20 +157,25 @@ public class S3Plugin extends Plugin {
             String bucketName = splitPathList.remove(0);
 
             PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, Joiner.on("/").join(splitPathList), sourceFile.toFile());
-            ObjectMetadata md = new ObjectMetadata();
-            md.setContentLength(inputSize);
+            if (metadata.isPresent()) {
+                ObjectMetadata md = new ObjectMetadata();
+                md.setContentLength(inputSize);
 
-            Gson gson = new Gson();
-            Type type = new TypeToken<Map<String, String>>(){}.getType();
-            try {
-                Map<String, String> map = gson.fromJson(metadata, type);
-                for (Map.Entry<String, String> entry : map.entrySet()) {
-                    md.getUserMetadata().put(entry.getKey(), entry.getValue());
+                Gson gson = new Gson();
+                Type type = new TypeToken<Map<String, String>>() {
+                }.getType();
+                try {
+
+                    Map<String, String> map = gson.fromJson(metadata.get(), type);
+                    for (Map.Entry<String, String> entry : map.entrySet()) {
+                        System.out.println("Loading " + entry.getKey() + "->" + entry.getValue());
+                        md.getUserMetadata().put(entry.getKey(), entry.getValue());
+                    }
+                } catch (com.google.gson.JsonSyntaxException ex) {
+                    md.getUserMetadata().put("encoded_metadata", metadata.get());
                 }
-            } catch(com.google.gson.JsonSyntaxException ex) {
-                md.getUserMetadata().put("encoded_metadata", metadata);
+                putObjectRequest.setMetadata(md);
             }
-            putObjectRequest.setMetadata(md);
 
             putObjectRequest.setGeneralProgressListener(getProgressListener(inputSize));
             try {
