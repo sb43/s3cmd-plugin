@@ -41,3 +41,16 @@ Loading two->two
 ```
 
 Note that metadata is Base64 encoded in the JSON and creates metadata tags on the uploaded file. 
+
+## Configuration 
+
+This plugin gets configuration information from the following structure in ~/.dockstore/config
+
+```
+[dockstore-file-s3-plugin]
+endpoint = <endpoint> 
+```
+
+Set the endpoint to a different value in order to talk to a S3 endpoint that is not the official endpoint hosted by AWS. (ex: https://object.cancercollaboratory.org:9080 )
+Note that the standard [Configuration and Credential Files](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-config-files) should be setup in your home directory in order to set an access key and secret access key. 
+
