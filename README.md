@@ -1,56 +1,43 @@
-# s3-plugin
-Dockstore S3 file provisioning plugin
+# icgc-get-plugin
+Dockstore icgc file provisioning plugin
 
 ## Usage
 
-The s3 plugin is capable of download, upload, and can set metadata on uploaded objects. 
+The icgc-get plugin is capable of downloading files by calling out to an installed copy of the [icgc-get-client](http://docs.icgc.org/cloud/icgc-get).
 
 ```
-$ cat test.s3.json 
+$ cat test.icgc.json
 {
-  "input_file": {
+    "input_file": {
         "class": "File",
-        "path": "s3://oicr.temp/bamstats_report.zip"
+        "path": "icgc-get://FI509397"
     },
     "output_file": {
         "class": "File",
-        "metadata": "eyJvbmUiOiJ3b24iLCJ0d28iOiJ0d28ifQ==",
         "path": "s3://oicr.temp/bamstats_report.zip"
     }
 }
 
-$ dockstore tool launch --entry  quay.io/briandoconnor/dockstore-tool-md5sum  --json test.s3.json
-Creating directories for run of Dockstore launcher at: ./datastore//launcher-a246f1b6-21fd-468e-8780-b064d311dda5
+$ dockstore tool launch --entry  quay.io/briandoconnor/dockstore-tool-md5sum  --json test.icgc.json
+Creating directories for run of Dockstore launcher at: ./datastore//launcher-2ebce330-2a44-4a3a-9d6d-55c152a5c38e
 Provisioning your input files to your local machine
-Downloading: #input_file from s3://oicr.temp/bamstats_report.zip into directory: /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-a246f1b6-21fd-468e-8780-b064d311dda5/inputs/73b70f11
--1711-40b7-bfea-9ee4543a8226
-Found file s3://oicr.temp/bamstats_report.zip in cache, hard-linking
-Calling on plugin io.dockstore.provision.S3Plugin$S3Provision to provision s3://oicr.temp/bamstats_report.zip
-Calling out to cwltool to run your tool
-Executing: cwltool --enable-dev --non-strict --outdir /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-a246f1b6-21fd-468e-8780-b064d311dda5/outputs/ --tmpdir-prefix /media/large_volu
-me/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-a246f1b6-21fd-468e-8780-b064d311dda5/tmp/ --tmp-outdir-prefix /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-a246f1b6-
-21fd-468e-8780-b064d311dda5/working/ /tmp/1488407859906-0/temp3047430238970788171.cwl /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-a246f1b6-21fd-468e-8780-b064d311dda5/workflow_p
-arams.json
-/usr/local/bin/cwltool 1.0.20170217172322
+Downloading: #input_file from icgc-get://097ddb14-9be7-5147-9d6e-7d350e7b203e into directory: /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-2ebce330-2a44-4a3a-9d6d-55c152a5c38e/inputs
+/a91c615b-a8ec-452f-afef-e6da6032194d
+Calling on plugin io.dockstore.provision.ICGCGetPlugin$ICGCGetProvision to provision icgc://097ddb14-9be7-5147-9d6e-7d350e7b203e
 ...
-Provisioning your output files to their final destinations
-Uploading: #output_file from /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-a246f1b6-21fd-468e-8780-b064d311dda5/outputs/md5sum.txt to : s3://oicr.temp/bamstats_report.zip
-Calling on plugin io.dockstore.provision.S3Plugin$S3Provision to provision to s3://oicr.temp/bamstats_report.zip
-Loading one->won
-Loading two->two
 ```
 
-Note that metadata is Base64 encoded in the JSON and creates metadata tags on the uploaded file. 
 
-## Configuration 
+## Configuration
 
 This plugin gets configuration information from the following structure in ~/.dockstore/config
 
 ```
-[dockstore-file-s3-plugin]
-endpoint = <endpoint> 
+[icgc-get-client]
+client = /home/user/icgc-get/icgc-get
+config-file-location = /.icgc-get/config.yaml
 ```
 
-Set the endpoint to a different value in order to talk to a S3 endpoint that is not the official endpoint hosted by AWS. (ex: https://object.cancercollaboratory.org:9080 )
-Note that the standard [Configuration and Credential Files](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-config-files) should be setup in your home directory in order to set an access key and secret access key. 
+Set the client location to your own and also make sure that the configuration file is populated with an access token.
+
 
