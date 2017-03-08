@@ -1,5 +1,5 @@
 # icgc-get-plugin
-Dockstore icgc file provisioning plugin
+Dockstore icgc file provisioning plugin.  Requires Docker installed.  Last tested with Docker version 17.03.0-ce, build 3a232c8
 
 ## Usage
 
@@ -33,8 +33,8 @@ This plugin gets configuration information from the following structure in ~/.do
 
 ```
 [dockstore-icgc-get-plugin]
-client = /home/gluu/icgc-get/icgc-get
-config-file-location = /home/gluu/.icgc-get/config.yaml
+client = /home/user/icgc-get/icgc-get
+config-file-location = /home/user/.icgc-get/config.yaml
 ```
 
 Set the client location to your own icgc-get client and also make sure that the configuration file is available at the config-file-location.
