@@ -6,24 +6,23 @@ Dockstore icgc file provisioning plugin
 The icgc-get plugin is capable of downloading files by calling out to an installed copy of the [icgc-get-client](http://docs.icgc.org/cloud/icgc-get).
 
 ```
-$ cat test.icgc.json
+$ cat test.json
 {
-    "input_file": {
+  "input_file": {
         "class": "File",
         "path": "icgc-get://FI509397"
     },
     "output_file": {
         "class": "File",
-        "path": "s3://oicr.temp/bamstats_report.zip"
+        "path": "/tmp/md5sum.txt"
     }
 }
 
 $ dockstore tool launch --entry  quay.io/briandoconnor/dockstore-tool-md5sum  --json test.icgc.json
 Creating directories for run of Dockstore launcher at: ./datastore//launcher-2ebce330-2a44-4a3a-9d6d-55c152a5c38e
 Provisioning your input files to your local machine
-Downloading: #input_file from icgc-get://097ddb14-9be7-5147-9d6e-7d350e7b203e into directory: /media/large_volume/dockstore_tools/dockstore-tool-md5sum/./datastore/launcher-2ebce330-2a44-4a3a-9d6d-55c152a5c38e/inputs
-/a91c615b-a8ec-452f-afef-e6da6032194d
-Calling on plugin io.dockstore.provision.ICGCGetPlugin$ICGCGetProvision to provision icgc://097ddb14-9be7-5147-9d6e-7d350e7b203e
+Downloading: #input_file from icgc-get://FI509397 into directory: /home/gluu/dockstore/dockstore-client/./datastore/launcher-423d8d83-e6b0-418d-8a09-0e29003ac55f/inputs/0aafce03-f893-4ce2-b97f-f2c36215f162
+Calling on plugin io.dockstore.provision.ICGCGetPlugin$ICGCGetProvision to provision icgc-get://FI509397
 ...
 ```
 
@@ -33,11 +32,11 @@ Calling on plugin io.dockstore.provision.ICGCGetPlugin$ICGCGetProvision to provi
 This plugin gets configuration information from the following structure in ~/.dockstore/config
 
 ```
-[icgc-get-client]
-client = /home/user/icgc-get/icgc-get
-config-file-location = /.icgc-get/config.yaml
+[dockstore-icgc-get-plugin]
+client = /home/gluu/icgc-get/icgc-get
+config-file-location = /home/gluu/.icgc-get/config.yaml
 ```
 
-Set the client location to your own and also make sure that the configuration file is populated with an access token.
+Set the client location to your own icgc-get client and also make sure that the configuration file is available at the config-file-location.
 
 
