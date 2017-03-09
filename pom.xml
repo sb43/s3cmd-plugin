@@ -3,18 +3,18 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.dockstore</groupId>
-    <artifactId>dockstore-icgc-get-plugin</artifactId>
+    <artifactId>dockstore-s3cmd-plugin</artifactId>
     <packaging>jar</packaging>
-    <name>dockstore-icgc-get-plugin</name>
+    <name>dockstore-s3cmd-plugin</name>
     <version>0.0.4-SNAPSHOT</version>
 
     <properties>
         <plugin.id>${project.artifactId}</plugin.id>
-        <plugin.class>io.dockstore.provision.ICGCGetPlugin</plugin.class>
+        <plugin.class>io.dockstore.provision.S3CmdPlugin</plugin.class>
         <plugin.version>${project.version}</plugin.version>
         <plugin.provider>Gary Luu</plugin.provider>
         <plugin.dependencies />
-	    <github.url>scm:git:git@github.com:dockstore/icgc-get-plugin.git</github.url>
+	    <github.url>scm:git:git@github.com:dockstore/s3cmd-plugin.git</github.url>
     </properties>
 
     <distributionManagement>
