@@ -15,12 +15,8 @@
  */
 package io.dockstore.provision;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +36,7 @@ import ro.fortsoft.pf4j.RuntimeMode;
  * @author gluu
  */
 public class S3CmdPlugin extends Plugin {
-    private static final Logger logger = LoggerFactory.getLogger(S3CmdPlugin.class);
+    private static final Logger LOG = LoggerFactory.getLogger(S3CmdPlugin.class);
 
     public S3CmdPlugin(PluginWrapper wrapper) {
         super(wrapper);
@@ -50,13 +46,13 @@ public class S3CmdPlugin extends Plugin {
     public void start() {
         // for testing the development mode
         if (RuntimeMode.DEVELOPMENT.equals(wrapper.getRuntimeMode())) {
-            System.out.println(StringUtils.upperCase("ICGCStorageClientPlugin development mode"));
+            System.out.println(StringUtils.upperCase("S3CmdPlugin development mode"));
         }
     }
 
     @Override
     public void stop() {
-        System.out.println("ICGCGetPlugin.stop()");
+        System.out.println("S3CmdPlugin.stop()");
     }
 
     @Extension
@@ -64,8 +60,19 @@ public class S3CmdPlugin extends Plugin {
 
         private static final String CLIENT_LOCATION = "client";
         private static final String CONFIG_FILE_LOCATION = "config-file-location";
-
+        private static final String DEFAULT_CLIENT = "/usr/bin/s3cmd";
+        private static final String DEFAULT_CONFIGURATION = System.getProperty("user.home") + "./s3cfg";
+        private String client;
+        private String configLocation;
         private Map<String, String> config;
+
+        public void setClient(String client) {
+            this.client = client;
+        }
+
+        public void setConfigLocation(String configLocation) {
+            this.configLocation = configLocation;
+        }
 
         public void setConfiguration(Map<String, String> map) {
             this.config = map;
@@ -75,165 +82,122 @@ public class S3CmdPlugin extends Plugin {
             return new HashSet<>(Lists.newArrayList("s3cmd"));
         }
 
-        //
-        // Downloads directory will look something like:
-        // .staging
-        // {{Object ID folder}}
-        //     - logs
-        //     - {{File Name file}}
-        //
-
         /**
-         * @param sourcePath  The scheme for icgc-get (icgc-get://FI509397)
-         * @param destination The destination where the file is supposed to be (includes the filename like /home/user/icgc-get/downloads/file.txt)
+         * Downloads the file from the remote source path and places at the local destination
+         *
+         * @param sourcePath  The scheme for s3cmd (ex. s3cmd://bucket/dir/object)
+         * @param destination The destination where the file is supposed to be (includes filename)
          * @return Whether download was successful or not
          */
         public boolean downloadFrom(String sourcePath, Path destination) {
-            String client = "/home/gluu/Downloads/s3cmd-1.6.1/s3cmd";
-            String configLocation = "/home/gluu/.s3cfg";
-            if (config.containsKey(CLIENT_LOCATION)) {
-                client = config.get(CLIENT_LOCATION);
-            }
-            if (config.containsKey(CONFIG_FILE_LOCATION)) {
-                configLocation = config.get(CONFIG_FILE_LOCATION);
-            }
-            // ambiguous how to reference icgc-get files, rip off these kinds of headers
+            setConfigAndClient();
+            // ambiguous how to reference s3cmd files, rip off these kinds of headers
             sourcePath = sourcePath.replaceFirst("s3cmd", "s3");
-
-            // default layout saves to original_file_name/object_id
-            // file name is the directory and object id is actual file name
-            String command = client + " -c " + configLocation + " get " + sourcePath + " " + destination;
-            Runtime rt = Runtime.getRuntime();
-            try {
-                Process ps = rt.exec(command);
-                try {
-                    ps.waitFor();
-                } catch (InterruptedException e) {
-                    System.err.println(e.getMessage());
-                }
-                printCommandConsole(ps);
-            } catch (IOException e) {
-                logger.info("Could not download input file");
-                System.err.println(e.getMessage());
-                throw new RuntimeException("Could not download input file: ", e);
-            }
-            return true;
+            String command = client + " -c " + configLocation + " get " + sourcePath + " " + destination + " --force";
+            return executeConsoleCommand(command);
         }
 
+        /**
+         * This sets the s3cmd client and s3 config file based on the dockstore config file and defaults
+         */
+        private void setConfigAndClient() {
+            if (config == null) {
+                LOG.error("You are missing a dockstore config file");
+            }
+            if (config.containsKey(CLIENT_LOCATION)) {
+                setClient(config.get(CLIENT_LOCATION));
+            } else {
+                setClient(DEFAULT_CLIENT);
+            }
+            if (config.containsKey(CONFIG_FILE_LOCATION)) {
+                setConfigLocation(config.get(CONFIG_FILE_LOCATION));
+            } else {
+                setConfigLocation(DEFAULT_CONFIGURATION);
+            }
+        }
+
+        /**
+         * Uploads the local source file and places at the remote destination
+         *
+         * @param destPath   The remote destination (ex. s3cmd://bucket/dir/object)
+         * @param sourceFile The local source file (ex. file.txt)
+         * @param metadata   Metadata: currently not used
+         * @return
+         */
         public boolean uploadTo(String destPath, Path sourceFile, Optional<String> metadata) {
+            setConfigAndClient();
             destPath = destPath.replace("s3cmd://", "s3://");
-            String trimmedPath = destPath.replace("s3://","");
+            String trimmedPath = destPath.replace("s3://", "");
             List<String> splitPathList = Lists.newArrayList(trimmedPath.split("/"));
             String bucketName = splitPathList.remove(0);
-            checkBucket("s3://"+bucketName);
-            String client = "/home/gluu/Downloads/s3cmd-1.6.1/s3cmd";
-            String configLocation = "/home/gluu/.s3cfg";
-            if (config.containsKey(CLIENT_LOCATION)) {
-                client = config.get(CLIENT_LOCATION);
+            if (checkBucket("s3://" + bucketName)) {
+                LOG.info("Bucket exists");
+            } else {
+                createBucket(bucketName);
             }
-            if (config.containsKey(CONFIG_FILE_LOCATION)) {
-                configLocation = config.get(CONFIG_FILE_LOCATION);
-            }
-            // ambiguous how to reference icgc-get files, rip off these kinds of headers
-
-
-            // default layout saves to original_file_name/object_id
-            // file name is the directory and object id is actual file name
             String command = client + " -c " + configLocation + " put " + sourceFile.toString() + " " + destPath;
-            Runtime rt = Runtime.getRuntime();
-            try {
-                Process ps = rt.exec(command);
-                try {
-                    ps.waitFor();
-                } catch (InterruptedException e) {
-                    System.err.println(e.getMessage());
-                }
-                printCommandConsole(ps);
-                return true;
-            } catch (IOException e) {
-                logger.info("Could not download input file");
-                System.err.println(e.getMessage());
-                throw new RuntimeException("Could not download input file: ", e);
-            }
+            return executeConsoleCommand(command);
         }
 
+        /**
+         * Check if the bucket exists
+         *
+         * @param bucket The actual bucket name (ex. s3://bucket)
+         * @return True if bucket exists, false if bucket doesn't exist
+         */
         private boolean checkBucket(String bucket) {
-            String client = "/home/gluu/Downloads/s3cmd-1.6.1/s3cmd";
-            String configLocation = "/home/gluu/.s3cfg";
-            if (config.containsKey(CLIENT_LOCATION)) {
-                client = config.get(CLIENT_LOCATION);
-            }
-            if (config.containsKey(CONFIG_FILE_LOCATION)) {
-                configLocation = config.get(CONFIG_FILE_LOCATION);
-            }
             String command = client + " -c " + configLocation + " info " + bucket;
-            Runtime rt = Runtime.getRuntime();
-            try {
-                Process ps = rt.exec(command);
-                try {
-                    ps.waitFor();
-                } catch (InterruptedException e) {
-                    System.err.println(e.getMessage());
-                }
-                java.util.Scanner s = new java.util.Scanner(ps.getErrorStream()).useDelimiter("\\A");
-                String errorString = s.hasNext() ? s.next() : "";
-                System.out.println("Error String: " + errorString);
-
-                java.util.Scanner s2 = new java.util.Scanner(ps.getInputStream()).useDelimiter("\\A");
-                String inputString = s2.hasNext() ? s2.next() : "";
-                System.out.println("Input String: " + inputString);
-                if (errorString.isEmpty()) {
-                    System.out.println("Bucket is present");
-                    return true;
-                }
-                else {
-                    System.out.println("Bucket is not present");
-                    createBucket(bucket);
-                    return false;
-                }
-            } catch (IOException e) {
-                logger.info("Could not download input file");
-                System.err.println(e.getMessage());
-                throw new RuntimeException("Could not download input file: ", e);
-            }
+            return executeConsoleCommand(command);
         }
 
+        /**
+         * Creates the bucket
+         *
+         * @param bucket The name of the bucket that needs to be created
+         * @return True if bucket successfully created, false if it wasn't successfully created
+         */
         private boolean createBucket(String bucket) {
-            String client = "/home/gluu/Downloads/s3cmd-1.6.1/s3cmd";
-            String configLocation = "/home/gluu/.s3cfg";
-            if (config.containsKey(CLIENT_LOCATION)) {
-                client = config.get(CLIENT_LOCATION);
-            }
-            if (config.containsKey(CONFIG_FILE_LOCATION)) {
-                configLocation = config.get(CONFIG_FILE_LOCATION);
-            }
             String command = client + " -c " + configLocation + " mb " + bucket;
-            Runtime rt = Runtime.getRuntime();
-            try {
-                Process ps = rt.exec(command);
-                try {
-                    ps.waitFor();
-                } catch (InterruptedException e) {
-                    System.err.println(e.getMessage());
-                }
-                printCommandConsole(ps);
-                System.out.println("Made bucket: " + bucket);
-                return true;
-            } catch (IOException e) {
-                logger.info("Could not download input file");
-                System.err.println(e.getMessage());
-                throw new RuntimeException("Could not download input file: ", e);
-            }
+            return executeConsoleCommand(command);
         }
 
-        private void printCommandConsole(Process ps) {
+        /**
+         * Given a process, it will print out its stdout and stderr
+         *
+         * @param ps The process for print out
+         * @return True if there's no error message, false if there is an error message
+         */
+        private boolean printCommandConsole(Process ps) {
             java.util.Scanner s = new java.util.Scanner(ps.getErrorStream()).useDelimiter("\\A");
             String errorString = s.hasNext() ? s.next() : "";
-            System.out.println("Error String: " + errorString);
+            LOG.warn("Error String: " + errorString);
 
             java.util.Scanner s2 = new java.util.Scanner(ps.getInputStream()).useDelimiter("\\A");
             String inputString = s2.hasNext() ? s2.next() : "";
-            System.out.println("Input String: " + inputString);
+            LOG.info("Input String: " + inputString);
+            return (errorString.isEmpty());
+        }
+
+        /**
+         * Executes the string command given
+         *
+         * @param command The command to execute
+         * @return True if command was successfully execute without error, false otherwise.
+         */
+        private boolean executeConsoleCommand(String command) {
+            Runtime rt = Runtime.getRuntime();
+            try {
+                Process ps = rt.exec(command);
+                try {
+                    ps.waitFor();
+                } catch (InterruptedException e) {
+                    LOG.error("Command got interrupted: " + command + " " + e);
+                }
+                return printCommandConsole(ps);
+            } catch (IOException e) {
+                LOG.error("Could not execute command: " + command + " " + e);
+                throw new RuntimeException("Could not execute command: " + command);
+            }
         }
     }
 }

@@ -1,20 +1,21 @@
-# icgc-get-plugin
-Dockstore icgc file provisioning plugin.  Requires Docker installed.  Last tested with Docker version 17.03.0-ce, build 3a232c8
+# s3cmd-plugin
+Dockstore s3cmd file provisioning plugin.  Requires s3cmd installed along with a valid configuration file.
+Run s3cmd --configure to create a configuration file at the default location.
 
 ## Usage
 
-The icgc-get plugin is capable of downloading files by calling out to an installed copy of the [icgc-get-client](http://docs.icgc.org/cloud/icgc-get).
+The s3cmd plugin is capable of downloading files by calling out to an installed copy of the [s3cmd client](http://s3tools.org/s3cmd).
 
 ```
 $ cat test.json
 {
   "input_file": {
         "class": "File",
-        "path": "icgc-get://FI509397"
+        "path": "s3cmd://bucket/dir/file.txt"
     },
     "output_file": {
         "class": "File",
-        "path": "/tmp/md5sum.txt"
+        "path": "s3cmd://bucket/dir/file.txt"
     }
 }
 
@@ -32,11 +33,11 @@ Calling on plugin io.dockstore.provision.ICGCGetPlugin$ICGCGetProvision to provi
 This plugin gets configuration information from the following structure in ~/.dockstore/config
 
 ```
-[dockstore-icgc-get-plugin]
-client = /home/user/icgc-get/icgc-get
-config-file-location = /home/user/.icgc-get/config.yaml
+[dockstore-s3cmd-plugin]
+client = /usr/bin/s3cmd
+config-file-location = /home/user/.s3cfg
 ```
 
-Set the client location to your own icgc-get client and also make sure that the configuration file is available at the config-file-location.
+Set the client location to your own s3cmd client and also make sure that the configuration file is available at the config-file-location.
 
 
