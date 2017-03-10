@@ -61,16 +61,16 @@ public class S3CmdPlugin extends Plugin {
         private static final String CLIENT_LOCATION = "client";
         private static final String CONFIG_FILE_LOCATION = "config-file-location";
         private static final String DEFAULT_CLIENT = "/usr/bin/s3cmd";
-        private static final String DEFAULT_CONFIGURATION = System.getProperty("user.home") + "./s3cfg";
+        private static final String DEFAULT_CONFIGURATION = System.getProperty("user.home") + "/.s3cfg";
         private String client;
         private String configLocation;
         private Map<String, String> config;
 
-        public void setClient(String client) {
+        void setClient(String client) {
             this.client = client;
         }
 
-        public void setConfigLocation(String configLocation) {
+        void setConfigLocation(String configLocation) {
             this.configLocation = configLocation;
         }
 
@@ -119,10 +119,10 @@ public class S3CmdPlugin extends Plugin {
         /**
          * Uploads the local source file and places at the remote destination
          *
-         * @param destPath   The remote destination (ex. s3cmd://bucket/dir/object)
-         * @param sourceFile The local source file (ex. file.txt)
-         * @param metadata   Metadata: currently not used
-         * @return
+         * @param destPath      The remote destination (ex. s3cmd://bucket/dir/object)
+         * @param sourceFile    The local source file (ex. file.txt)
+         * @param metadata      Metadata: currently not used
+         * @return              Returns true on successful upload, false otherwise
          */
         public boolean uploadTo(String destPath, Path sourceFile, Optional<String> metadata) {
             setConfigAndClient();

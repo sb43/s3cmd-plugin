@@ -7,7 +7,7 @@ Run s3cmd --configure to create a configuration file at the default location.
 The s3cmd plugin is capable of downloading files by calling out to an installed copy of the [s3cmd client](http://s3tools.org/s3cmd).
 
 ```
-$ cat test.json
+$ cat test.s3cmd.json
 {
   "input_file": {
         "class": "File",
@@ -15,16 +15,18 @@ $ cat test.json
     },
     "output_file": {
         "class": "File",
-        "path": "s3cmd://bucket/dir/file.txt"
+        "path": "s3cmd://bucket/dir/file2.txt"
     }
 }
 
-$ dockstore tool launch --entry  quay.io/briandoconnor/dockstore-tool-md5sum  --json test.icgc.json
+$ dockstore tool launch --entry  quay.io/briandoconnor/dockstore-tool-md5sum  --json test.s3cmd.json
 Creating directories for run of Dockstore launcher at: ./datastore//launcher-2ebce330-2a44-4a3a-9d6d-55c152a5c38e
 Provisioning your input files to your local machine
-Downloading: #input_file from icgc-get://FI509397 into directory: /home/gluu/dockstore/dockstore-client/./datastore/launcher-423d8d83-e6b0-418d-8a09-0e29003ac55f/inputs/0aafce03-f893-4ce2-b97f-f2c36215f162
-Calling on plugin io.dockstore.provision.ICGCGetPlugin$ICGCGetProvision to provision icgc-get://FI509397
+Downloading: #input_file from s3cmd://bucket/dir/file.txt into directory: /home/gluu/md5/./datastore/launcher-9e1ec2cb-2315-4487-9afe-7f4d9179fcd6/inputs/a356d1c3-f095-4801-8ef7-f0e429e0316e
+Calling on plugin io.dockstore.provision.S3CmdPlugin$S3CmdProvision to provision s3cmd://bucket/dir/file.txt
 ...
+Uploading: #output_file from /home/gluu/md5/./datastore/launcher-9e1ec2cb-2315-4487-9afe-7f4d9179fcd6/outputs/md5sum.txt to : s3cmd://bucket/dir/file2.txt
+Calling on plugin io.dockstore.provision.S3CmdPlugin$S3CmdProvision to provision to s3cmd://bucket/dir/file2.txt
 ```
 
 
