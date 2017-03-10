@@ -119,10 +119,10 @@ public class S3CmdPlugin extends Plugin {
         /**
          * Uploads the local source file and places at the remote destination
          *
-         * @param destPath      The remote destination (ex. s3cmd://bucket/dir/object)
-         * @param sourceFile    The local source file (ex. file.txt)
-         * @param metadata      Metadata: currently not used
-         * @return              Returns true on successful upload, false otherwise
+         * @param destPath   The remote destination (ex. s3cmd://bucket/dir/object)
+         * @param sourceFile The local source file (ex. file.txt)
+         * @param metadata   Metadata: currently not used
+         * @return Returns true on successful upload, false otherwise
          */
         public boolean uploadTo(String destPath, Path sourceFile, Optional<String> metadata) {
             setConfigAndClient();
