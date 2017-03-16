@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.dockstore</groupId>
-    <artifactId>dockstore-s3cmd-plugin</artifactId>
+    <artifactId>dockstore-file-s3cmd-plugin</artifactId>
     <packaging>jar</packaging>
-    <name>dockstore-s3cmd-plugin</name>
+    <name>dockstore-file-s3cmd-plugin</name>
     <version>0.0.4-SNAPSHOT</version>
 
     <properties>

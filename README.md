@@ -35,7 +35,7 @@ Calling on plugin io.dockstore.provision.S3CmdPlugin$S3CmdProvision to provision
 This plugin gets configuration information from the following structure in ~/.dockstore/config
 
 ```
-[dockstore-s3cmd-plugin]
+[dockstore-file-s3cmd-plugin]
 client = /usr/bin/s3cmd
 config-file-location = /home/user/.s3cfg
 ```
