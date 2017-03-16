@@ -147,6 +147,7 @@ public class S3CmdPlugin extends Plugin {
          */
         private boolean checkBucket(String bucket) {
             String command = client + " -c " + configLocation + " info " + bucket;
+            LOG.info("Bucket information: ");
             return executeConsoleCommand(command);
         }
 
@@ -170,11 +171,14 @@ public class S3CmdPlugin extends Plugin {
         private boolean printCommandConsole(Process ps) {
             java.util.Scanner s = new java.util.Scanner(ps.getErrorStream()).useDelimiter("\\A");
             String errorString = s.hasNext() ? s.next() : "";
-            LOG.warn("Error String: " + errorString);
-
+            if (!errorString.isEmpty()) {
+                LOG.error(errorString);
+            }
             java.util.Scanner s2 = new java.util.Scanner(ps.getInputStream()).useDelimiter("\\A");
             String inputString = s2.hasNext() ? s2.next() : "";
-            LOG.info("Input String: " + inputString);
+            if (!inputString.isEmpty()) {
+                LOG.info(inputString);
+            }
             return (errorString.isEmpty());
         }
 
