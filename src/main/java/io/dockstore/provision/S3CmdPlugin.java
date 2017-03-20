@@ -15,13 +15,17 @@
  */
 package io.dockstore.provision;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
@@ -174,11 +178,6 @@ public class S3CmdPlugin extends Plugin {
             if (!errorString.isEmpty()) {
                 LOG.error(errorString);
             }
-            java.util.Scanner s2 = new java.util.Scanner(ps.getInputStream()).useDelimiter("\\A");
-            String inputString = s2.hasNext() ? s2.next() : "";
-            if (!inputString.isEmpty()) {
-                LOG.info(inputString);
-            }
             return (errorString.isEmpty());
         }
 
@@ -189,18 +188,43 @@ public class S3CmdPlugin extends Plugin {
          * @return True if command was successfully execute without error, false otherwise.
          */
         private boolean executeConsoleCommand(String command) {
-            Runtime rt = Runtime.getRuntime();
+            ProcessBuilder builder = new ProcessBuilder(command.split(" "));
+            final Process p;
             try {
-                Process ps = rt.exec(command);
+                p = builder.start();
+                final Thread ioThread = new Thread(() -> {
+                    try {
+                        final BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            // The first line of s3cmd plugin will start with "download", must isolate from others
+                            Pattern pattern = Pattern.compile("download.*");
+                            Matcher matcher = pattern.matcher(line);
+                            if (matcher.matches()) {
+                                System.out.println(line);
+                            } else {
+                                // Output of process doesn't seem to retain the carriage returns, so manually doing that
+                                System.out.print("\r" + line);
+                            }
+
+                        }
+                        reader.close();
+                        System.out.println();
+                    } catch (IOException e) {
+                        LOG.error("Could not read input stream from process. " + e.getMessage());
+                    }
+                });
+                ioThread.start();
                 try {
-                    ps.waitFor();
+                    p.waitFor();
                 } catch (InterruptedException e) {
-                    LOG.error("Command got interrupted: " + command + " " + e);
+                    LOG.error("Process interrupted. " + e.getMessage());
+                    return false;
                 }
-                return printCommandConsole(ps);
+                return printCommandConsole(p);
             } catch (IOException e) {
-                LOG.error("Could not execute command: " + command + " " + e);
-                throw new RuntimeException("Could not execute command: " + command);
+                LOG.error("Could not execute command: " + command);
+                return false;
             }
         }
     }
