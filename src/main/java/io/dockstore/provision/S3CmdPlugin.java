@@ -167,21 +167,6 @@ public class S3CmdPlugin extends Plugin {
         }
 
         /**
-         * Given a process, it will print out its stdout and stderr
-         *
-         * @param ps The process for print out
-         * @return True if there's no error message, false if there is an error message
-         */
-        private boolean printCommandConsole(Process ps) {
-            java.util.Scanner s = new java.util.Scanner(ps.getErrorStream()).useDelimiter("\\A");
-            String errorString = s.hasNext() ? s.next() : "";
-            if (!errorString.isEmpty()) {
-                LOG.error(errorString);
-            }
-            return (errorString.isEmpty());
-        }
-
-        /**
          * Executes the string command given
          *
          * @param command The command to execute
@@ -189,6 +174,7 @@ public class S3CmdPlugin extends Plugin {
          */
         private boolean executeConsoleCommand(String command) {
             ProcessBuilder builder = new ProcessBuilder(command.split(" "));
+            builder.redirectErrorStream(true);
             final Process p;
             try {
                 p = builder.start();
@@ -216,12 +202,15 @@ public class S3CmdPlugin extends Plugin {
                 });
                 ioThread.start();
                 try {
-                    p.waitFor();
+                    if (p.waitFor() == 0) {
+                        return true;
+                    } else {
+                        return false;
+                    }
                 } catch (InterruptedException e) {
                     LOG.error("Process interrupted. " + e.getMessage());
                     return false;
                 }
-                return printCommandConsole(p);
             } catch (IOException e) {
                 LOG.error("Could not execute command: " + command);
                 return false;
