@@ -32,7 +32,7 @@ Calling on plugin io.dockstore.provision.S3CmdPlugin$S3CmdProvision to provision
 
 ## Configuration
 
-Download the plugin with `dockstore plugin download` by adding an entry to ~/.dockstore/config similar to the following
+Download the plugin with `dockstore plugin download` by adding an entry to ~/.dockstore/plugins.json similar to the following
 ```
 [
   {
