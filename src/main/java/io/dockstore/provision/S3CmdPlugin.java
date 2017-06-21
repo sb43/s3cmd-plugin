@@ -98,7 +98,7 @@ public class S3CmdPlugin extends Plugin {
             // ambiguous how to reference s3cmd files, rip off these kinds of headers
             sourcePath = sourcePath.replaceFirst("s3cmd", "s3");
             String command = client + " -c " + configLocation + " get " + sourcePath + " " + destination + " --force";
-            return executeConsoleCommand(command);
+            return executeConsoleCommand(command, true);
         }
 
         /**
@@ -140,7 +140,7 @@ public class S3CmdPlugin extends Plugin {
                 createBucket(bucketName);
             }
             String command = client + " -c " + configLocation + " put " + sourceFile.toString() + " " + destPath;
-            return executeConsoleCommand(command);
+            return executeConsoleCommand(command, true);
         }
 
         /**
@@ -152,7 +152,7 @@ public class S3CmdPlugin extends Plugin {
         private boolean checkBucket(String bucket) {
             String command = client + " -c " + configLocation + " info " + bucket;
             LOG.info("Bucket information: ");
-            return executeConsoleCommand(command);
+            return executeConsoleCommand(command, false);
         }
 
         /**
@@ -163,7 +163,7 @@ public class S3CmdPlugin extends Plugin {
          */
         private boolean createBucket(String bucket) {
             String command = client + " -c " + configLocation + " mb " + bucket;
-            return executeConsoleCommand(command);
+            return executeConsoleCommand(command, false);
         }
 
         /**
@@ -172,7 +172,7 @@ public class S3CmdPlugin extends Plugin {
          * @param command The command to execute
          * @return True if command was successfully execute without error, false otherwise.
          */
-        private boolean executeConsoleCommand(String command) {
+        private boolean executeConsoleCommand(String command, boolean printStdout) {
             ProcessBuilder builder = new ProcessBuilder(command.split(" "));
             builder.redirectErrorStream(true);
             final Process p;
@@ -183,16 +183,17 @@ public class S3CmdPlugin extends Plugin {
                         final BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
                         String line;
                         while ((line = reader.readLine()) != null) {
-                            // The first line of s3cmd plugin will start with "download", must isolate from others
-                            Pattern pattern = Pattern.compile("download.*");
-                            Matcher matcher = pattern.matcher(line);
-                            if (matcher.matches()) {
-                                System.out.println(line);
-                            } else {
-                                // Output of process doesn't seem to retain the carriage returns, so manually doing that
-                                System.out.print("\r" + line);
+                            if (printStdout) {
+                                // The first line of s3cmd plugin will start with "download", must isolate from others
+                                Pattern pattern = Pattern.compile("download.*");
+                                Matcher matcher = pattern.matcher(line);
+                                if (matcher.matches()) {
+                                    System.out.println(line);
+                                } else {
+                                    // Output of process doesn't seem to retain the carriage returns, so manually doing that
+                                    System.out.print("\r" + line);
+                                }
                             }
-
                         }
                         reader.close();
                         System.out.println();
