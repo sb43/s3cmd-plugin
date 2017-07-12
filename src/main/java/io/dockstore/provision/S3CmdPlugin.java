@@ -98,7 +98,27 @@ public class S3CmdPlugin extends Plugin {
             // ambiguous how to reference s3cmd files, rip off these kinds of headers
             sourcePath = sourcePath.replaceFirst("s3cmd", "s3");
             String command = client + " -c " + configLocation + " get " + sourcePath + " " + destination + " --force";
-            return executeConsoleCommand(command);
+            int exitCode = executeConsoleCommand(command, true);
+            return checkExitCode(exitCode);
+        }
+
+        // This function checks the exit code and decides what to return
+        // See https://github.com/s3tools/s3cmd/blob/master/S3/ExitCodes.py for exit code description
+        private boolean checkExitCode(int exitCode) {
+            switch (exitCode) {
+            case 0: {
+                return true;
+            }
+            case 65:
+            case 71:
+            case 74:
+            case 75: {
+                return false;
+            }
+            default: {
+                throw new RuntimeException("Process exited with exit code" + exitCode);
+            }
+            }
         }
 
         /**
@@ -134,13 +154,15 @@ public class S3CmdPlugin extends Plugin {
             String trimmedPath = destPath.replace("s3://", "");
             List<String> splitPathList = Lists.newArrayList(trimmedPath.split("/"));
             String bucketName = splitPathList.remove(0);
-            if (checkBucket("s3://" + bucketName)) {
+            String fullBucketName = "s3://" + bucketName;
+            if (checkBucket(fullBucketName)) {
                 LOG.info("Bucket exists");
             } else {
-                createBucket(bucketName);
+                createBucket(fullBucketName);
             }
             String command = client + " -c " + configLocation + " put " + sourceFile.toString() + " " + destPath;
-            return executeConsoleCommand(command);
+            int exitCode = executeConsoleCommand(command, true);
+            return checkExitCode(exitCode);
         }
 
         /**
@@ -152,7 +174,12 @@ public class S3CmdPlugin extends Plugin {
         private boolean checkBucket(String bucket) {
             String command = client + " -c " + configLocation + " info " + bucket;
             LOG.info("Bucket information: ");
-            return executeConsoleCommand(command);
+            int exitCode = executeConsoleCommand(command, false);
+            if (exitCode != 0) {
+                return false;
+            } else {
+                return true;
+            }
         }
 
         /**
@@ -163,7 +190,12 @@ public class S3CmdPlugin extends Plugin {
          */
         private boolean createBucket(String bucket) {
             String command = client + " -c " + configLocation + " mb " + bucket;
-            return executeConsoleCommand(command);
+            int exitCode = executeConsoleCommand(command, false);
+            if (exitCode != 0) {
+                return false;
+            } else {
+                return true;
+            }
         }
 
         /**
@@ -172,7 +204,8 @@ public class S3CmdPlugin extends Plugin {
          * @param command The command to execute
          * @return True if command was successfully execute without error, false otherwise.
          */
-        private boolean executeConsoleCommand(String command) {
+        private int executeConsoleCommand(String command, boolean printStdout) {
+            System.out.println("Executing command: " + command);
             ProcessBuilder builder = new ProcessBuilder(command.split(" "));
             builder.redirectErrorStream(true);
             final Process p;
@@ -183,37 +216,39 @@ public class S3CmdPlugin extends Plugin {
                         final BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
                         String line;
                         while ((line = reader.readLine()) != null) {
-                            // The first line of s3cmd plugin will start with "download", must isolate from others
-                            Pattern pattern = Pattern.compile("download.*");
-                            Matcher matcher = pattern.matcher(line);
-                            if (matcher.matches()) {
-                                System.out.println(line);
-                            } else {
-                                // Output of process doesn't seem to retain the carriage returns, so manually doing that
-                                System.out.print("\r" + line);
+                            if (printStdout) {
+                                // The first line of s3cmd plugin will start with "download", must isolate from others
+                                Pattern pattern = Pattern.compile("download.*");
+                                Matcher matcher = pattern.matcher(line);
+                                if (matcher.matches()) {
+                                    System.out.println(line);
+                                } else {
+                                    // Output of process doesn't seem to retain the carriage returns, so manually doing that
+                                    System.out.print("\r" + line);
+                                }
                             }
-
+                        }
+                        if (command.contains("put") || command.contains("get")) {
+                            System.out.println();
                         }
                         reader.close();
-                        System.out.println();
                     } catch (IOException e) {
                         LOG.error("Could not read input stream from process. " + e.getMessage());
+                        throw new RuntimeException(e);
                     }
                 });
                 ioThread.start();
                 try {
-                    if (p.waitFor() == 0) {
-                        return true;
-                    } else {
-                        return false;
-                    }
+                    int exitCode = p.waitFor();
+                    return exitCode;
                 } catch (InterruptedException e) {
                     LOG.error("Process interrupted. " + e.getMessage());
-                    return false;
+                    throw new RuntimeException(e);
                 }
             } catch (IOException e) {
                 LOG.error("Could not execute command: " + command);
-                return false;
+
+                throw new RuntimeException(e);
             }
         }
     }
