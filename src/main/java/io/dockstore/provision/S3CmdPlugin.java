@@ -18,6 +18,7 @@ package io.dockstore.provision;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,8 @@ import ro.fortsoft.pf4j.Extension;
 import ro.fortsoft.pf4j.Plugin;
 import ro.fortsoft.pf4j.PluginWrapper;
 import ro.fortsoft.pf4j.RuntimeMode;
+
+import static io.dockstore.provision.S3CmdPluginHelper.getChunkSize;
 
 /**
  * @author gluu
@@ -127,16 +130,9 @@ public class S3CmdPlugin extends Plugin {
         private void setConfigAndClient() {
             if (config == null) {
                 LOG.error("You are missing a dockstore config file");
-            }
-            if (config.containsKey(CLIENT_LOCATION)) {
-                setClient(config.get(CLIENT_LOCATION));
             } else {
-                setClient(DEFAULT_CLIENT);
-            }
-            if (config.containsKey(CONFIG_FILE_LOCATION)) {
-                setConfigLocation(config.get(CONFIG_FILE_LOCATION));
-            } else {
-                setConfigLocation(DEFAULT_CONFIGURATION);
+                setConfigLocation(config.getOrDefault(CONFIG_FILE_LOCATION, DEFAULT_CONFIGURATION));
+                setClient(config.getOrDefault(CLIENT_LOCATION, DEFAULT_CLIENT));
             }
         }
 
@@ -150,6 +146,13 @@ public class S3CmdPlugin extends Plugin {
          */
         public boolean uploadTo(String destPath, Path sourceFile, Optional<String> metadata) {
             setConfigAndClient();
+            long sizeInBytes;
+            try {
+                sizeInBytes = Files.size(sourceFile);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            String modifiedChunkSize = getChunkSize(sizeInBytes);
             destPath = destPath.replace("s3cmd://", "s3://");
             String trimmedPath = destPath.replace("s3://", "");
             List<String> splitPathList = Lists.newArrayList(trimmedPath.split("/"));
@@ -158,9 +161,12 @@ public class S3CmdPlugin extends Plugin {
             if (checkBucket(fullBucketName)) {
                 LOG.info("Bucket exists");
             } else {
-                createBucket(fullBucketName);
+                if (!createBucket(fullBucketName)) {
+                    LOG.error("Could not create bucket");
+                }
             }
-            String command = client + " -c " + configLocation + " put " + sourceFile.toString() + " " + destPath;
+            String command = client + " -c " + configLocation + " put " + sourceFile.toString().replace(" ", "%32") + " " + destPath
+                    + modifiedChunkSize;
             int exitCode = executeConsoleCommand(command, true);
             return checkExitCode(exitCode);
         }
@@ -175,11 +181,7 @@ public class S3CmdPlugin extends Plugin {
             String command = client + " -c " + configLocation + " info " + bucket;
             LOG.info("Bucket information: ");
             int exitCode = executeConsoleCommand(command, false);
-            if (exitCode != 0) {
-                return false;
-            } else {
-                return true;
-            }
+            return exitCode == 0;
         }
 
         /**
@@ -191,11 +193,7 @@ public class S3CmdPlugin extends Plugin {
         private boolean createBucket(String bucket) {
             String command = client + " -c " + configLocation + " mb " + bucket;
             int exitCode = executeConsoleCommand(command, false);
-            if (exitCode != 0) {
-                return false;
-            } else {
-                return true;
-            }
+            return exitCode == 0;
         }
 
         /**
@@ -206,7 +204,11 @@ public class S3CmdPlugin extends Plugin {
          */
         private int executeConsoleCommand(String command, boolean printStdout) {
             System.out.println("Executing command: " + command);
-            ProcessBuilder builder = new ProcessBuilder(command.split(" "));
+            String[] split = command.split(" ");
+            for (int i = 0; i < split.length; i++) {
+                split[i] = split[i].replace("%32", " ");
+            }
+            ProcessBuilder builder = new ProcessBuilder(split);
             builder.redirectErrorStream(true);
             final Process p;
             try {
@@ -239,8 +241,7 @@ public class S3CmdPlugin extends Plugin {
                 });
                 ioThread.start();
                 try {
-                    int exitCode = p.waitFor();
-                    return exitCode;
+                    return p.waitFor();
                 } catch (InterruptedException e) {
                     LOG.error("Process interrupted. " + e.getMessage());
                     throw new RuntimeException(e);
