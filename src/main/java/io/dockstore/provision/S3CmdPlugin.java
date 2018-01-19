@@ -25,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
@@ -38,6 +36,7 @@ import ro.fortsoft.pf4j.PluginWrapper;
 import ro.fortsoft.pf4j.RuntimeMode;
 
 import static io.dockstore.provision.S3CmdPluginHelper.getChunkSize;
+import static io.dockstore.provision.S3CmdPluginHelper.nextLinesRequireCarriageReturn;
 
 /**
  * @author gluu
@@ -67,11 +66,33 @@ public class S3CmdPlugin extends Plugin {
 
         private static final String CLIENT_LOCATION = "client";
         private static final String CONFIG_FILE_LOCATION = "config-file-location";
+        private static final String VERBOSITY = "verbosity";
         private static final String DEFAULT_CLIENT = "/usr/bin/s3cmd";
         private static final String DEFAULT_CONFIGURATION = System.getProperty("user.home") + "/.s3cfg";
+        private static final String DEFAULT_VERBOSITY = "normal";
+        private VerbosityEnum verbosity;
         private String client;
         private String configLocation;
         private Map<String, String> config;
+
+        // Similar to https://github.com/qos-ch/slf4j/blob/0b1e6d38cfabd4b7ed335aec1aa6b2ae0c770f08/slf4j-simple/src/main/java/org/slf4j/simple/SimpleLoggerConfiguration.java#L145
+        public void setVerbosity(String verbosity) {
+            try {
+                switch (verbosity.toLowerCase()) {
+                case "minimal":
+                    this.verbosity = VerbosityEnum.MINIMAL;
+                    break;
+                case "normal":
+                    this.verbosity = VerbosityEnum.NORMAL;
+                    break;
+                default:
+                    LOG.error("Unknown verbosity setting");
+                    this.verbosity = VerbosityEnum.NORMAL;
+                }
+            } catch (NumberFormatException e) {
+                this.verbosity = VerbosityEnum.NORMAL;
+            }
+        }
 
         void setClient(String client) {
             this.client = client;
@@ -133,6 +154,7 @@ public class S3CmdPlugin extends Plugin {
             } else {
                 setConfigLocation(config.getOrDefault(CONFIG_FILE_LOCATION, DEFAULT_CONFIGURATION));
                 setClient(config.getOrDefault(CLIENT_LOCATION, DEFAULT_CLIENT));
+                setVerbosity(config.getOrDefault(VERBOSITY, DEFAULT_VERBOSITY));
             }
         }
 
@@ -162,6 +184,8 @@ public class S3CmdPlugin extends Plugin {
                 LOG.info("Bucket exists");
             } else {
                 if (!createBucket(fullBucketName)) {
+                    // This is an error because it should've executed successfully regardless of whether it existed or not
+                    // We'll continue and try to upload regardless
                     LOG.error("Could not create bucket");
                 }
             }
@@ -179,8 +203,7 @@ public class S3CmdPlugin extends Plugin {
          */
         private boolean checkBucket(String bucket) {
             String command = client + " -c " + configLocation + " info " + bucket;
-            LOG.info("Bucket information: ");
-            int exitCode = executeConsoleCommand(command, false);
+            int exitCode = executeConsoleCommand(command, true);
             return exitCode == 0;
         }
 
@@ -192,7 +215,7 @@ public class S3CmdPlugin extends Plugin {
          */
         private boolean createBucket(String bucket) {
             String command = client + " -c " + configLocation + " mb " + bucket;
-            int exitCode = executeConsoleCommand(command, false);
+            int exitCode = executeConsoleCommand(command, verbosity.getLevel() >= VerbosityEnum.NORMAL.getLevel());
             return exitCode == 0;
         }
 
@@ -203,7 +226,8 @@ public class S3CmdPlugin extends Plugin {
          * @return True if command was successfully execute without error, false otherwise.
          */
         private int executeConsoleCommand(String command, boolean printStdout) {
-            System.out.println("Executing command: " + command);
+            // Show command in dockstore --debug mode
+            LOG.debug("Executing command: " + command);
             String[] split = command.split(" ");
             for (int i = 0; i < split.length; i++) {
                 split[i] = split[i].replace("%32", " ");
@@ -217,20 +241,25 @@ public class S3CmdPlugin extends Plugin {
                     try {
                         final BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
                         String line;
+                        boolean carriage = false;
                         while ((line = reader.readLine()) != null) {
                             if (printStdout) {
-                                // The first line of s3cmd plugin will start with "download", must isolate from others
-                                Pattern pattern = Pattern.compile("download.*");
-                                Matcher matcher = pattern.matcher(line);
-                                if (matcher.matches()) {
-                                    System.out.println(line);
+                                // The line prior to the carriage return will start with "download" or "upload", must isolate from others
+                                if (carriage == false) {
+                                    // 's3cmd info' will only display in dockstore --debug mode
+                                    if (command.contains("info")) {
+                                        LOG.debug(line);
+                                    } else {
+                                        System.out.println(line);
+                                    }
+                                    carriage = nextLinesRequireCarriageReturn(line);
                                 } else {
-                                    // Output of process doesn't seem to retain the carriage returns, so manually doing that
                                     System.out.print("\r" + line);
                                 }
                             }
                         }
-                        if (command.contains("put") || command.contains("get")) {
+                        // For some reason file provisioning download does not output a newline, but upload does
+                        if (command.contains("get")) {
                             System.out.println();
                         }
                         reader.close();
