@@ -174,6 +174,15 @@ public class S3CmdPlugin extends Plugin {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+            String recursive = "";
+
+            // If the destination end with a slash, source could be either a file or a directory
+            // It can technically be either, but we're recursively putting the source file as if it's a directory because there's no side effect
+            // If the destination does not end with a slash, source must be a file
+            if (destPath.endsWith("/")) {
+                recursive = "-r ";
+            }
+
             String modifiedChunkSize = getChunkSize(sizeInBytes);
             destPath = destPath.replace("s3cmd://", "s3://");
             String trimmedPath = destPath.replace("s3://", "");
@@ -184,12 +193,11 @@ public class S3CmdPlugin extends Plugin {
                 LOG.info("Bucket exists");
             } else {
                 if (!createBucket(fullBucketName)) {
-                    // This is an error because it should've executed successfully regardless of whether it existed or not
-                    // We'll continue and try to upload regardless
-                    LOG.error("Could not create bucket");
+                    // New s3cmd apparently returns an error if bucket exists
+                    LOG.info("Could not create bucket");
                 }
             }
-            String command = client + " -c " + configLocation + " put " + sourceFile.toString().replace(" ", "%32") + " " + destPath
+            String command = client + " -c " + configLocation + " put " + recursive + sourceFile.toString().replace(" ", "%32") + " " + destPath
                     + modifiedChunkSize;
             int exitCode = executeConsoleCommand(command, true);
             return checkExitCode(exitCode);

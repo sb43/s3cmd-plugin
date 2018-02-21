@@ -1,7 +1,12 @@
 sudo: required
 language: java
+services:
+  - docker
 jdk:
   - oraclejdk8
+install:
+  - pip install --user -r requirements.txt
+before_script:
+  - bash start-localstack.sh
 script: 
   - mvn clean install
-
