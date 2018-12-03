@@ -121,7 +121,16 @@ public class S3CmdPlugin extends Plugin {
             setConfigAndClient();
             // ambiguous how to reference s3cmd files, rip off these kinds of headers
             sourcePath = sourcePath.replaceFirst("s3cmd", "s3");
-            String command = client + " -c " + configLocation + " get " + sourcePath + " " + destination + " --force";
+
+            String recursive = "";
+            //added by sb43@sanger.ac.uk
+            // If the source end with a slash, source could be either a file or a directory
+            // It can technically be either, but we're recursively getting the source files as if it's a directory because there's no side effect
+            // If the destination does not end with a slash, source must be a file
+            if (sourcePath.endsWith("/")) {
+                recursive = "-r ";
+            }
+            String command = client + " -c " + configLocation + " get " + recursive + sourcePath + " " + destination + " --force";
             int exitCode = executeConsoleCommand(command, true);
             return checkExitCode(exitCode);
         }
